@@ -1,0 +1,48 @@
+name: Generate and Publish FGC Schedule Image
+
+on:
+  schedule:
+    - cron: '*/1 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Generate schedule image
+        run: python generate.py
+      - name: Deploy to gh-pages
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@users.noreply.github.com"
+          git stash -u
+          git fetch origin gh-pages || true
+          if git rev-parse origin/gh-pages >/dev/null 2>&1; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+          fi
+          git reset --hard
+          # Remove all files except .git
+          find . -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          git stash pop || true
+          git add fgc_sant_cugat.png
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update schedule image"
+            git push origin gh-pages
+          fi
